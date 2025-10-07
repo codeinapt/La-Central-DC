@@ -1,14 +1,76 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mi Página</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deudas</title>
 </head>
 <body>
-  <h1>¡Hola desde GitHub Pages!</h1>
-  <script src="script.js"></script>
+  <h1>Registro de Deudas</h1>
+
+  <input id="nombre" placeholder="Nombre" />
+  <input id="deuda" type="number" placeholder="Deuda" />
+  <button id="btnAgregar">Agregar</button>
+
+  <h2>Lista de usuarios</h2>
+  <table border="1" id="tabla">
+    <tr>
+      <th>Nombre</th>
+      <th>Deuda</th>
+    </tr>
+  </table>
+
+  <!-- Scripts de Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"></script>
+
+  <script>
+    // 🔧 Configuración de tu proyecto (personalízala con tu propia config de Firebase)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
+      authDomain: "finanzas-9cf9a.firebaseapp.com",
+      databaseURL: "https://finanzas-9cf9a-default-rtdb.firebaseio.com",
+      projectId: "finanzas-9cf9a",
+      storageBucket: "finanzas-9cf9a.firebasestorage.app",
+      messagingSenderId: "619666520117",
+      appId: "1:619666520117:web:769672477e884d8bed597c",
+      measurementId: "G-SJX7L1VH78"
+    };
+
+    // Inicializar Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database(app);
+    const refUsuarios = db.ref("usuarios");
+
+    // 🧠 Función para agregar un usuario
+    function agregarUsuario(nombre, deuda) {
+      const nuevo = refUsuarios.push();
+      nuevo.set({ nombre, deuda });
+    }
+
+    // 📥 Cargar usuarios en tiempo real
+    refUsuarios.on("value", (snapshot) => {
+      const tabla = document.getElementById("tabla");
+      tabla.innerHTML = `
+        <tr><th>Nombre</th><th>Deuda</th></tr>
+      `;
+      const data = snapshot.val();
+      for (let id in data) {
+        const fila = `<tr><td>${data[id].nombre}</td><td>${data[id].deuda}</td></tr>`;
+        tabla.innerHTML += fila;
+      }
+    });
+
+    // 🖱 Evento para botón
+    document.getElementById("btnAgregar").addEventListener("click", () => {
+      const nombre = document.getElementById("nombre").value.trim();
+      const deuda = document.getElementById("deuda").value.trim();
+      if (nombre && deuda) {
+        agregarUsuario(nombre, deuda);
+        document.getElementById("nombre").value = "";
+        document.getElementById("deuda").value = "";
+      }
+    });
+  </script>
 </body>
 </html>
