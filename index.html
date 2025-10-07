@@ -1,28 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deudas</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Deudas — Pública</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Registro de Deudas</h1>
+  <div class="container">
+    <h1>Tabla de deudas (vista pública)</h1>
+    <p class="small">Solo lectura — cualquier cambio lo hace el admin.</p>
+    <div id="tablaContainer"></div>
+  </div>
 
-  <input id="nombre" placeholder="Nombre" />
-  <input id="deuda" type="number" placeholder="Deuda" />
-  <button id="btnAgregar">Agregar</button>
-
-  <h2>Lista de usuarios</h2>
-  <table border="1" id="tabla">
-    <tr>
-      <th>Nombre</th>
-      <th>Deuda</th>
-    </tr>
-  </table>
-
-  <!-- Scripts de Firebase -->
+  <!-- Firebase SDKs: app + database -->
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"></script>
+
 
   <script>
     // 🔧 Configuración de tu proyecto (personalízala con tu propia config de Firebase)
@@ -36,40 +30,59 @@
       appId: "1:619666520117:web:769672477e884d8bed597c",
       measurementId: "G-SJX7L1VH78"
     };
+ // =============================================
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const fieldsRef = db.ref("fields");
+    const usersRef = db.ref("usuarios");
 
-    // Inicializar Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database(app);
-    const refUsuarios = db.ref("usuarios");
+    function formatNumber(n){ return Number(n||0).toFixed(2); }
 
-    // 🧠 Función para agregar un usuario
-    function agregarUsuario(nombre, deuda) {
-      const nuevo = refUsuarios.push();
-      nuevo.set({ nombre, deuda });
+    function renderTable(fieldsObj, usersObj){
+      const container = document.getElementById("tablaContainer");
+      const fields = fieldsObj ? Object.entries(fieldsObj) : [];
+      const users = usersObj ? Object.entries(usersObj) : [];
+
+      if (fields.length === 0) {
+        container.innerHTML = "<p>No hay campos (conceptos) todavía.</p>";
+        return;
+      }
+
+      let html = '<table><thead><tr><th>Nombre</th>';
+      fields.forEach(([fKey, fName]) => html += `<th>${escapeHtml(fName)}</th>`);
+      html += '<th>Total</th></tr></thead><tbody>';
+
+      users.forEach(([uKey, uObj]) => {
+        const nombre = uObj.nombre || '';
+        const debts = uObj.debts || {};
+        let total = 0;
+        html += `<tr><td>${escapeHtml(nombre)}</td>`;
+        fields.forEach(([fKey, fName]) => {
+          const v = Number(debts[fKey] || 0);
+          total += v;
+          html += `<td>${formatNumber(v)}</td>`;
+        });
+        html += `<td>${formatNumber(total)}</td></tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
-    // 📥 Cargar usuarios en tiempo real
-    refUsuarios.on("value", (snapshot) => {
-      const tabla = document.getElementById("tabla");
-      tabla.innerHTML = `
-        <tr><th>Nombre</th><th>Deuda</th></tr>
-      `;
-      const data = snapshot.val();
-      for (let id in data) {
-        const fila = `<tr><td>${data[id].nombre}</td><td>${data[id].deuda}</td></tr>`;
-        tabla.innerHTML += fila;
-      }
+    function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // Escucha cambios en tiempo real
+    fieldsRef.on("value", snapF => {
+      usersRef.once("value", snapU => {
+        renderTable(snapF.val(), snapU.val());
+      });
     });
 
-    // 🖱 Evento para botón
-    document.getElementById("btnAgregar").addEventListener("click", () => {
-      const nombre = document.getElementById("nombre").value.trim();
-      const deuda = document.getElementById("deuda").value.trim();
-      if (nombre && deuda) {
-        agregarUsuario(nombre, deuda);
-        document.getElementById("nombre").value = "";
-        document.getElementById("deuda").value = "";
-      }
+    // Si no hay fields aún, intenta al menos con usuarios (por si se crean después)
+    usersRef.on("value", snapU => {
+      fieldsRef.once("value", snapF => {
+        renderTable(snapF.val(), snapU.val());
+      });
     });
   </script>
 </body>
