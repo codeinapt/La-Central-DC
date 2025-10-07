@@ -1,45 +1,36 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Deudas — Admin</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="auth-bar">
-      <div id="userInfo" class="small"></div>
-      <button id="btnLogin">Iniciar sesión (Google)</button>
-      <button id="btnLogout" style="display:none">Cerrar sesión</button>
-    </div>
+  <h1>🔐 Panel de Administración</h1>
 
-    <h1>Panel Admin</h1>
-
-    <div id="adminControls" style="display:none">
-      <div class="controls">
-        <input id="campoNombre" placeholder="Nuevo campo (ej: Humo 5k)" />
-        <button id="btnAddField">Agregar campo</button>
-
-        <input id="userNombre" placeholder="Nombre usuario" />
-        <button id="btnAddUser">Agregar usuario</button>
-      </div>
-
-      <div id="tablaAdmin"></div>
-    </div>
-
-    <div id="mustLogin" style="text-align:center">
-      <p class="small">Debes iniciar sesión para ver las opciones de administración.</p>
-    </div>
+  <div id="login">
+    <h2>Acceso restringido</h2>
+    <input type="password" id="clave" placeholder="Ingrese contraseña" />
+    <button onclick="verificarClave()">Entrar</button>
   </div>
 
-  <!-- Firebase SDKs: app + database + auth -->
+  <div id="contenido" style="display:none;">
+    <input id="nombre" placeholder="Nombre" />
+    <input id="deuda" type="number" placeholder="Deuda" />
+    <button id="btnAgregar">Agregar</button>
+
+    <h2>Usuarios registrados</h2>
+    <table id="tabla">
+      <tr><th>Nombre</th><th>Deuda</th></tr>
+    </table>
+  </div>
+
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-
   <script>
-    // ==== reemplaza con tu firebaseConfig REAL ====
+    // Configuración Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
       authDomain: "finanzas-9cf9a.firebaseapp.com",
@@ -50,158 +41,53 @@
       appId: "1:619666520117:web:769672477e884d8bed597c",
       measurementId: "G-SJX7L1VH78"
     };
-    // =============================================
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const auth = firebase.auth();
-    const fieldsRef = db.ref("fields");
-    const usersRef = db.ref("usuarios");
 
-    // UI refs
-    const btnLogin = document.getElementById("btnLogin");
-    const btnLogout = document.getElementById("btnLogout");
-    const userInfo = document.getElementById("userInfo");
-    const adminControls = document.getElementById("adminControls");
-    const mustLogin = document.getElementById("mustLogin");
-    const tablaAdmin = document.getElementById("tablaAdmin");
-    const btnAddField = document.getElementById("btnAddField");
-    const btnAddUser = document.getElementById("btnAddUser");
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database(app);
+    const refUsuarios = db.ref("usuarios");
 
-    btnLogin.addEventListener("click", () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider).catch(e => alert(e.message));
-    });
-    btnLogout.addEventListener("click", () => auth.signOut());
+    // ✅ Clave simple
+    const CLAVE_ADMIN = "12345";
 
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        userInfo.textContent = `Conectado: ${user.displayName} (${user.email})`;
-        btnLogin.style.display = "none";
-        btnLogout.style.display = "inline-block";
-        adminControls.style.display = "block";
-        mustLogin.style.display = "none";
+    function verificarClave() {
+      const clave = document.getElementById("clave").value;
+      if (clave === CLAVE_ADMIN) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("contenido").style.display = "block";
+        cargarDatos();
       } else {
-        userInfo.textContent = "";
-        btnLogin.style.display = "inline-block";
-        btnLogout.style.display = "none";
-        adminControls.style.display = "none";
-        mustLogin.style.display = "block";
+        alert("Clave incorrecta");
+      }
+    }
+
+    // 🧠 Agregar usuario
+    function agregarUsuario(nombre, deuda) {
+      const nuevo = refUsuarios.push();
+      nuevo.set({ nombre, deuda });
+    }
+
+    // 🖱 Botón agregar
+    document.getElementById("btnAgregar").addEventListener("click", () => {
+      const nombre = document.getElementById("nombre").value.trim();
+      const deuda = document.getElementById("deuda").value.trim();
+      if (nombre && deuda) {
+        agregarUsuario(nombre, deuda);
+        document.getElementById("nombre").value = "";
+        document.getElementById("deuda").value = "";
       }
     });
 
-    // Agregar campo (concepto)
-    btnAddField.addEventListener("click", async () => {
-      const nombre = document.getElementById("campoNombre").value.trim();
-      if (!nombre) return alert("Escribe un nombre de campo.");
-      const newFieldRef = fieldsRef.push();
-      const key = newFieldRef.key;
-      await newFieldRef.set(nombre);
-      // inicializar ese campo en cada usuario con 0
-      const snapUsers = await usersRef.get();
-      const users = snapUsers.val();
-      if (users) {
-        const updates = {};
-        Object.keys(users).forEach(uid => {
-          updates[`/usuarios/${uid}/debts/${key}`] = 0;
-        });
-        await db.ref().update(updates);
-      }
-      document.getElementById("campoNombre").value = "";
-    });
-
-    // Agregar usuario
-    btnAddUser.addEventListener("click", async () => {
-      const nombre = document.getElementById("userNombre").value.trim();
-      if (!nombre) return alert("Escribe un nombre.");
-      const fieldsSnap = await fieldsRef.get();
-      const fields = fieldsSnap.val() || {};
-      // crear objeto debts con todas las keys actuales
-      const debts = {};
-      Object.keys(fields).forEach(k => debts[k] = 0);
-      await usersRef.push({ nombre, debts });
-      document.getElementById("userNombre").value = "";
-    });
-
-    // Render admin table con celdas editables
-    async function renderAdmin(fieldsObj, usersObj) {
-      const fields = fieldsObj ? Object.entries(fieldsObj) : [];
-      const users = usersObj ? Object.entries(usersObj) : [];
-      if (fields.length === 0) {
-        tablaAdmin.innerHTML = "<p>No hay campos (agrega alguno en admin).</p>";
-        return;
-      }
-      let html = '<table><thead><tr><th>Nombre</th>';
-      fields.forEach(([fKey, fName]) => html += `<th>${escapeHtml(fName)} <button data-field="${fKey}" class="delField btn-danger">X</button></th>`);
-      html += '<th>Total</th><th>Acciones</th></tr></thead><tbody>';
-      users.forEach(([uKey, uObj]) => {
-        const debts = uObj.debts || {};
-        let total = 0;
-        html += `<tr data-user="${uKey}"><td>${escapeHtml(uObj.nombre||'')}</td>`;
-        fields.forEach(([fKey, fName]) => {
-          const v = Number(debts[fKey] || 0);
-          total += v;
-          html += `<td contenteditable="true" data-user="${uKey}" data-field="${fKey}">${Number(v).toFixed(2)}</td>`;
-        });
-        html += `<td class="totalCell">${Number(total).toFixed(2)}</td>`;
-        html += `<td><button class="delUser btn-danger" data-user="${uKey}">Eliminar</button></td></tr>`;
+    // 📥 Cargar usuarios
+    function cargarDatos() {
+      refUsuarios.on("value", (snapshot) => {
+        const data = snapshot.val();
+        const tabla = document.getElementById("tabla");
+        tabla.innerHTML = "<tr><th>Nombre</th><th>Deuda</th></tr>";
+        for (let id in data) {
+          tabla.innerHTML += `<tr><td>${data[id].nombre}</td><td>${data[id].deuda}</td></tr>`;
+        }
       });
-      html += '</tbody></table>';
-      tablaAdmin.innerHTML = html;
-
-      // attach handlers
-      tablaAdmin.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-        td.addEventListener('blur', onCellBlur);
-      });
-      tablaAdmin.querySelectorAll('.delUser').forEach(b => b.addEventListener('click', onDeleteUser));
-      tablaAdmin.querySelectorAll('.delField').forEach(b => b.addEventListener('click', onDeleteField));
     }
-
-    function escapeHtml(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-    async function onCellBlur(e){
-      const td = e.target;
-      const userId = td.getAttribute('data-user');
-      const fieldKey = td.getAttribute('data-field');
-      const value = parseFloat(td.textContent.replace(',','.')) || 0;
-      // actualizar en DB
-      await usersRef.child(userId).child('debts').child(fieldKey).set(value);
-      // actualizar total cell
-      // obtén fila y recalcula
-      const tr = td.closest('tr');
-      let sum = 0;
-      tr.querySelectorAll('td[contenteditable="true"]').forEach(cell => sum += parseFloat(cell.textContent) || 0);
-      tr.querySelector('.totalCell').textContent = sum.toFixed(2);
-    }
-
-    async function onDeleteUser(e){
-      const uid = e.target.getAttribute('data-user');
-      if (!confirm('Eliminar usuario?')) return;
-      await usersRef.child(uid).remove();
-    }
-
-    async function onDeleteField(e){
-      const fKey = e.target.getAttribute('data-field');
-      if (!confirm('Eliminar campo y sus valores en usuarios?')) return;
-      // eliminar field
-      await fieldsRef.child(fKey).remove();
-      // eliminar propiedad debts[fKey] en todos los usuarios
-      const snap = await usersRef.get();
-      const users = snap.val();
-      if (users) {
-        const updates = {};
-        Object.keys(users).forEach(uid => {
-          updates[`/usuarios/${uid}/debts/${fKey}`] = null;
-        });
-        await db.ref().update(updates);
-      }
-    }
-
-    // Escucha en tiempo real
-    fieldsRef.on("value", fieldsSnap => {
-      usersRef.on("value", usersSnap => {
-        renderAdmin(fieldsSnap.val(), usersSnap.val());
-      });
-    });
   </script>
 </body>
 </html>
