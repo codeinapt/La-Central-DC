@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deudas registradas</title>
+  <title>💰 Deudas registradas</title>
   <style>
     body {
       background-color: #0b0c10;
@@ -137,25 +137,27 @@
       const debts = Object.values(data);
 
       debts.forEach(debt => {
-        const isPaid = debt.isPaid === true || debt.isPaid === "true";
+        const nombre = debt.nombre || "Sin nombre";
+        const descripcion = debt.descripcion || "-";
+        const fecha = debt.fecha ? new Date(debt.fecha).toLocaleDateString() : "-";
+        const monto = parseFloat(debt.monto || 0);
+        const pagado = debt.pagado === true || debt.pagado === "true";
 
         const card = document.createElement("div");
-        card.classList.add("card", isPaid ? "paid" : "pending");
-
-        const date = new Date(debt.date).toLocaleDateString();
+        card.classList.add("card", pagado ? "paid" : "pending");
 
         card.innerHTML = `
-          <h3>${debt.name || "Sin nombre"}</h3>
-          <p><strong>Monto:</strong> $${parseFloat(debt.amount).toFixed(2)}</p>
-          <p><strong>Fecha:</strong> ${date}</p>
-          <p><strong>Descripción:</strong> ${debt.description || "-"}</p>
-          <span class="status ${isPaid ? "paid" : "pending"}">
-            ${isPaid ? "Pagado" : "Pendiente"}
+          <h3>${nombre}</h3>
+          <p><strong>Monto:</strong> $${monto.toFixed(2)}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+          <p><strong>Descripción:</strong> ${descripcion}</p>
+          <span class="status ${pagado ? "paid" : "pending"}">
+            ${pagado ? "Pagado" : "Pendiente"}
           </span>
         `;
 
         cardsContainer.appendChild(card);
-        if (!isPaid) total += parseFloat(debt.amount);
+        if (!pagado) total += monto;
       });
 
       totalPending.textContent = `$${total.toFixed(2)}`;
