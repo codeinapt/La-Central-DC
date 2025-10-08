@@ -16,23 +16,40 @@
   </div>
 
   <div id="contenido" style="display:none;">
-    <!-- Sección usuarios -->
-    <h2>👥 Agregar usuario</h2>
-    <input id="nombre" placeholder="Nombre" />
-    <button id="btnAgregarUsuario">Agregar Usuario</button>
+    <div class="container">
+      <div class="controls">
+        <button onclick="mostrarSeccion('usuarios')">👤 Usuarios</button>
+        <button onclick="mostrarSeccion('deudas')">💰 Deudas</button>
+      </div>
 
-    <!-- Sección deudas -->
-    <h2>💰 Crear nueva deuda</h2>
-    <input id="montoDeuda" type="number" placeholder="Monto de deuda" />
-    <button id="btnAgregarDeuda">Asignar deuda a todos</button>
+      <!-- Sección Usuarios -->
+      <div id="seccionUsuarios">
+        <h2>Usuarios</h2>
+        <div class="controls">
+          <input id="nombreUsuario" placeholder="Nombre del usuario" />
+          <button id="btnAgregarUsuario">Agregar Usuario</button>
+        </div>
+        <table id="tablaUsuarios">
+          <tr><th>Nombre</th><th>Deudas</th></tr>
+        </table>
+      </div>
 
-    <h2>📋 Usuarios y deudas</h2>
-    <table id="tabla">
-      <tr><th>Nombre</th><th>Deudas</th></tr>
-    </table>
+      <!-- Sección Deudas -->
+      <div id="seccionDeudas" style="display:none;">
+        <h2>Deudas</h2>
+        <div class="controls">
+          <input id="descripcion" placeholder="Descripción" />
+          <input id="monto" type="number" placeholder="Monto" />
+          <button id="btnAgregarDeuda">Agregar Deuda</button>
+        </div>
+        <table id="tablaDeudas">
+          <tr><th>Descripción</th><th>Monto</th></tr>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <!-- Firebase SDK compat -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
@@ -50,8 +67,9 @@
     };
 
     const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    const db = firebase.database(app);
     const refUsuarios = db.ref("usuarios");
+    const refDeudas = db.ref("deudas");
 
     const CLAVE_ADMIN = "12345";
 
@@ -60,69 +78,90 @@
       if (clave === CLAVE_ADMIN) {
         document.getElementById("login").style.display = "none";
         document.getElementById("contenido").style.display = "block";
-        cargarDatos();
-      } else {
-        alert("Clave incorrecta");
-      }
+        cargarUsuarios();
+        cargarDeudas();
+      } else alert("Clave incorrecta");
     }
 
-    // 🧠 Agregar usuario
-    document.getElementById("btnAgregarUsuario").addEventListener("click", () => {
-      const nombre = document.getElementById("nombre").value.trim();
-      if (!nombre) return alert("Escribe un nombre");
-      const nuevo = refUsuarios.push();
-      nuevo.set({ nombre, deudas: {} });
-      document.getElementById("nombre").value = "";
+    function mostrarSeccion(seccion) {
+      document.getElementById("seccionUsuarios").style.display = seccion === "usuarios" ? "block" : "none";
+      document.getElementById("seccionDeudas").style.display = seccion === "deudas" ? "block" : "none";
+    }
+
+    // ➕ Agregar usuario
+    document.getElementById("btnAgregarUsuario").addEventListener("click", async () => {
+      const nombre = document.getElementById("nombreUsuario").value.trim();
+      if (!nombre) return alert("Ingrese un nombre");
+      const nuevoRef = refUsuarios.push();
+      const snapshotDeudas = await refDeudas.get();
+      const deudasExistentes = snapshotDeudas.val() || {};
+      const deudasUsuario = {};
+      for (const id in deudasExistentes) {
+        deudasUsuario[id] = { ...deudasExistentes[id], pagado: false };
+      }
+      await nuevoRef.set({ nombre, deudas: deudasUsuario });
+      document.getElementById("nombreUsuario").value = "";
     });
 
-    // 💰 Asignar deuda a todos los usuarios
+    // ➕ Agregar deuda
     document.getElementById("btnAgregarDeuda").addEventListener("click", async () => {
-      const monto = document.getElementById("montoDeuda").value.trim();
-      if (!monto) return alert("Ingresa un monto");
+      const descripcion = document.getElementById("descripcion").value.trim();
+      const monto = document.getElementById("monto").value.trim();
+      if (!descripcion || !monto) return alert("Complete los campos");
+      const nuevaRef = refDeudas.push();
+      await nuevaRef.set({ descripcion, monto });
 
-      const snapshot = await refUsuarios.once("value");
-      const usuarios = snapshot.val();
-      const nuevaDeudaId = Date.now();
+      // Asignar esta deuda a todos los usuarios
+      const snapshotUsuarios = await refUsuarios.get();
+      snapshotUsuarios.forEach(u => {
+        db.ref(`usuarios/${u.key}/deudas/${nuevaRef.key}`).set({ descripcion, monto, pagado: false });
+      });
 
-      for (let uid in usuarios) {
-        db.ref(`usuarios/${uid}/deudas/${nuevaDeudaId}`).set({
-          monto: parseFloat(monto),
-          pagado: false
-        });
-      }
-
-      alert("Deuda asignada a todos los usuarios.");
-      document.getElementById("montoDeuda").value = "";
+      document.getElementById("descripcion").value = "";
+      document.getElementById("monto").value = "";
     });
 
-    // 🟦 Cambiar estado de pago
-    function togglePago(uid, deudaId, actual) {
-      db.ref(`usuarios/${uid}/deudas/${deudaId}/pagado`).set(!actual);
+    // 👥 Cargar usuarios
+    function cargarUsuarios() {
+      refUsuarios.on("value", (snap) => {
+        const data = snap.val() || {};
+        const tabla = document.getElementById("tablaUsuarios");
+        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th></tr>";
+        for (let id in data) {
+          const usuario = data[id];
+          let deudasHtml = "";
+          if (usuario.deudas) {
+            for (let idDeuda in usuario.deudas) {
+              const deuda = usuario.deudas[idDeuda];
+              const estilo = deuda.pagado ? 'style="background:#0044cc;"' : "";
+              deudasHtml += `<div ${estilo} onclick="togglePagado('${id}','${idDeuda}')">
+                ${deuda.descripcion}: $${deuda.monto}
+              </div>`;
+            }
+          }
+          tabla.innerHTML += `<tr><td>${usuario.nombre}</td><td>${deudasHtml}</td></tr>`;
+        }
+      });
     }
 
-    // 📥 Cargar usuarios y deudas
-    function cargarDatos() {
-      refUsuarios.on("value", (snapshot) => {
-        const data = snapshot.val();
-        const tabla = document.getElementById("tabla");
-        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th></tr>";
-
-        for (let uid in data) {
-          let fila = `<tr><td>${data[uid].nombre}</td><td>`;
-          if (data[uid].deudas) {
-            for (let deudaId in data[uid].deudas) {
-              const deuda = data[uid].deudas[deudaId];
-              const color = deuda.pagado ? "style='color:blue;'" : "";
-              fila += `<span ${color} onclick="togglePago('${uid}','${deudaId}',${deuda.pagado})">
-                        💵 ${deuda.monto}
-                      </span><br>`;
-            }
-          } else {
-            fila += "Sin deudas";
-          }
-          fila += "</td></tr>";
-          tabla.innerHTML += fila;
+    // 💰 Cargar deudas
+    function cargarDeudas() {
+      refDeudas.on("value", (snap) => {
+        const data = snap.val() || {};
+        const tabla = document.getElementById("tablaDeudas");
+        tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th></tr>";
+        for (let id in data) {
+          tabla.innerHTML += `<tr><td>${data[id].descripcion}</td><td>${data[id].monto}</td></tr>`;
         }
+      });
+    }
+
+    // 🔄 Cambiar estado de pago
+    function togglePagado(idUsuario, idDeuda) {
+      const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
+      refDeuda.once("value").then((snap) => {
+        const actual = snap.val();
+        refDeuda.update({ pagado: !actual.pagado });
       });
     }
   </script>
