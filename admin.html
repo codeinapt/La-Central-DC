@@ -43,6 +43,7 @@
       border-collapse: collapse;
       background-color: #111;
       border: 1px solid #333;
+      margin-bottom: 20px;
     }
 
     th, td {
@@ -59,7 +60,6 @@
 
     td {
       background-color: #0b0c10;
-      cursor: pointer;
     }
 
     td.paid {
@@ -89,10 +89,7 @@
       display: none;
     }
 
-    #matrizDeudas {
-      display: block;
-    }
-
+    #matrizDeudas,
     #seccionUsuarios,
     #seccionDeudas {
       display: none;
@@ -101,6 +98,15 @@
     .small {
       font-size: 0.8em;
       opacity: 0.8;
+    }
+
+    .btn-danger {
+      background: #e53935;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -186,8 +192,10 @@
     if (clave === CLAVE_ADMIN) {
       document.getElementById("login").style.display = "none";
       document.getElementById("contenido").style.display = "block";
-      mostrarSeccion('matriz');
+      mostrarSeccion("matriz");
       cargarMatriz();
+      cargarUsuarios();
+      cargarDeudas();
     } else alert("Clave incorrecta");
   }
 
@@ -197,17 +205,15 @@
     document.getElementById("seccionDeudas").style.display = seccion === "deudas" ? "block" : "none";
   }
 
-  // === MATRIZ ===
+  // MATRIZ
   function cargarMatriz() {
     refUsuarios.on("value", (snap) => {
       const data = snap.val() || {};
       const encabezado = document.getElementById("encabezadoMatriz");
       const cuerpo = document.getElementById("cuerpoMatriz");
-
       encabezado.innerHTML = "<th>Usuario</th>";
       cuerpo.innerHTML = "";
 
-      // Recolectar todas las descripciones de deudas
       const descripciones = new Set();
       Object.values(data).forEach((usuario) => {
         if (usuario.deudas) {
@@ -226,16 +232,16 @@
           const deuda = Object.entries(usuario.deudas || {}).find(
             ([, d]) => d.descripcion === desc
           );
+          const celda = document.createElement("td");
+
           if (deuda) {
             const [idDeuda, d] = deuda;
-            const celda = document.createElement("td");
             celda.textContent = `$${d.monto}`;
             celda.className = d.pagado ? "paid" : "pending";
             celda.onclick = () => togglePagado(idUsuario, idDeuda);
-            fila.appendChild(celda);
-          } else {
-            fila.innerHTML += "<td></td>";
           }
+
+          fila.appendChild(celda);
         });
 
         cuerpo.appendChild(fila);
@@ -243,7 +249,7 @@
     });
   }
 
-  // Cambiar estado de pago desde la matriz
+  // CAMBIO ESTADO
   function togglePagado(idUsuario, idDeuda) {
     const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
     refDeuda.once("value").then((snap) => {
@@ -252,7 +258,87 @@
     });
   }
 
-  // === RESTO DE FUNCIONALIDADES ORIGINALES ===
+  // USUARIOS
+  function cargarUsuarios() {
+    refUsuarios.on("value", (snap) => {
+      const data = snap.val() || {};
+      const tabla = document.getElementById("tablaUsuarios");
+      tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>";
+
+      for (const id in data) {
+        const usuario = data[id];
+        let deudasHtml = "";
+        if (usuario.deudas) {
+          const deudasOrdenadas = Object.entries(usuario.deudas).sort(
+            (a, b) => new Date(b[1].fecha) - new Date(a[1].fecha)
+          );
+          for (let [idDeuda, deuda] of deudasOrdenadas) {
+            const estilo = deuda.pagado ? 'style="background:#1e88e5;"' : 'style="background:#e53935;"';
+            const fechaFmt = formatearFecha(deuda.fecha);
+            deudasHtml += `<div ${estilo} onclick="togglePagado('${id}','${idDeuda}')">
+              ${deuda.descripcion}: $${deuda.monto} <span class='small'>(${fechaFmt})</span>
+            </div>`;
+          }
+        }
+        tabla.innerHTML += `
+          <tr>
+            <td>${usuario.nombre}</td>
+            <td>${deudasHtml}</td>
+            <td><button class="btn-danger" onclick="eliminarUsuario('${id}')">🗑</button></td>
+          </tr>`;
+      }
+    });
+  }
+
+  // DEUDAS
+  function cargarDeudas() {
+    refDeudas.on("value", (snap) => {
+      const data = snap.val() || {};
+      const tabla = document.getElementById("tablaDeudas");
+      tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>";
+
+      const deudasOrdenadas = Object.entries(data).sort(
+        (a, b) => new Date(b[1].fecha) - new Date(a[1].fecha)
+      );
+
+      for (let [id, deuda] of deudasOrdenadas) {
+        const fechaFmt = formatearFecha(deuda.fecha);
+        tabla.innerHTML += `
+          <tr>
+            <td>${deuda.descripcion}</td>
+            <td>${deuda.monto}</td>
+            <td>${fechaFmt}</td>
+            <td><button class="btn-danger" onclick="eliminarDeuda('${id}')">🗑</button></td>
+          </tr>`;
+      }
+    });
+  }
+
+  // UTILIDADES
+  function formatearFecha(fechaIso) {
+    try {
+      const fecha = new Date(fechaIso);
+      return fecha.toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+    } catch {
+      return fechaIso;
+    }
+  }
+
+  function eliminarUsuario(idUsuario) {
+    if (confirm("¿Seguro que deseas eliminar este usuario?")) {
+      db.ref(`usuarios/${idUsuario}`).remove();
+    }
+  }
+
+  async function eliminarDeuda(idDeuda) {
+    if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
+    await db.ref(`deudas/${idDeuda}`).remove();
+    const snapshotUsuarios = await refUsuarios.get();
+    snapshotUsuarios.forEach((u) => {
+      db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
+    });
+  }
+
   document.getElementById("btnAgregarUsuario").addEventListener("click", async () => {
     const nombre = document.getElementById("nombreUsuario").value.trim();
     if (!nombre) return alert("Ingrese un nombre");
@@ -286,34 +372,6 @@
     document.getElementById("monto").value = "";
     document.getElementById("fecha").value = "";
   });
-
-  function formatearFecha(fechaIso) {
-    try {
-      const fecha = new Date(fechaIso);
-      return fecha.toLocaleDateString("es-CO", {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      });
-    } catch {
-      return fechaIso;
-    }
-  }
-
-  function eliminarUsuario(idUsuario) {
-    if (confirm("¿Seguro que deseas eliminar este usuario?")) {
-      db.ref(`usuarios/${idUsuario}`).remove();
-    }
-  }
-
-  async function eliminarDeuda(idDeuda) {
-    if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
-    await db.ref(`deudas/${idDeuda}`).remove();
-    const snapshotUsuarios = await refUsuarios.get();
-    snapshotUsuarios.forEach((u) => {
-      db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
-    });
-  }
   </script>
 </body>
 </html>
