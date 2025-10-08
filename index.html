@@ -6,7 +6,7 @@
   <title>💰 Deudas registradas</title>
   <style>
     body {
-      background-color: #0b0c10;
+      background-color: #0d1117;
       color: #fff;
       font-family: "Segoe UI", Arial, sans-serif;
       margin: 0;
@@ -15,88 +15,118 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 25px;
-      font-size: 1.8em;
+      margin-bottom: 15px;
       color: #00aaff;
+    }
+
+    .view-switch {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .view-switch button {
+      background-color: #1e1e2f;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px 20px;
+      margin: 0 5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .view-switch button.active {
+      background-color: #007bff;
     }
 
     .cards-container {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 15px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
     }
 
     .card {
       border-radius: 12px;
-      padding: 15px;
-      background-color: #141414;
+      padding: 16px;
+      background: #161b22;
       border: 1px solid #333;
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s;
     }
 
     .card:hover {
       transform: translateY(-4px);
-      box-shadow: 0 0 12px rgba(0, 170, 255, 0.3);
-    }
-
-    .card.paid {
-      border: 2px solid #2196f3;
-      background: linear-gradient(145deg, #0d47a1 0%, #0b2447 100%);
-    }
-
-    .card.pending {
-      border: 2px solid #ff5252;
-      background: linear-gradient(145deg, #8b0000 0%, #450000 100%);
     }
 
     .card h3 {
       margin: 0 0 8px 0;
-      font-size: 1.2em;
+      color: #90caf9;
     }
 
-    .card p {
-      margin: 4px 0;
-      font-size: 0.95em;
-    }
-
-    .status {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 0.8em;
-      font-weight: bold;
+    .debt {
+      background: #111;
       margin-top: 6px;
+      padding: 8px;
+      border-radius: 6px;
+      border-left: 4px solid #e53935;
     }
 
-    .status.paid {
-      background-color: rgba(33, 150, 243, 0.2);
-      color: #66ccff;
-      border: 1px solid #2196f3;
-    }
-
-    .status.pending {
-      background-color: rgba(255, 82, 82, 0.2);
-      color: #ff9999;
-      border: 1px solid #ff5252;
+    .debt.paid {
+      border-left-color: #1e88e5;
+      background: rgba(30, 136, 229, 0.1);
     }
 
     .total {
-      font-size: 1.3em;
       text-align: right;
-      margin-top: 25px;
+      margin-top: 20px;
       font-weight: bold;
+      color: #00aaff;
     }
 
-    .total span {
-      color: #00aaff;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #161b22;
+    }
+
+    th, td {
+      border: 1px solid #333;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #1f2937;
+      color: #90caf9;
+    }
+
+    tr:nth-child(even) {
+      background-color: #111;
     }
   </style>
 </head>
 <body>
   <h1>💰 Deudas registradas</h1>
 
-  <div class="cards-container" id="cardsContainer"></div>
+  <div class="view-switch">
+    <button id="btnUsuarios" class="active">👤 Por usuario</button>
+    <button id="btnGeneral">📋 General</button>
+  </div>
+
+  <div id="vistaUsuarios" class="cards-container"></div>
+  <div id="vistaGeneral" style="display:none;">
+    <table>
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Descripción</th>
+          <th>Monto</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tablaGeneral"></tbody>
+    </table>
+  </div>
 
   <div class="total">
     Total pendiente: <span id="totalPending">$0</span>
@@ -120,47 +150,84 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const cardsContainer = document.getElementById("cardsContainer");
+    const vistaUsuarios = document.getElementById("vistaUsuarios");
+    const vistaGeneral = document.getElementById("vistaGeneral");
+    const tablaGeneral = document.getElementById("tablaGeneral");
     const totalPending = document.getElementById("totalPending");
 
-    onValue(ref(db, "deudas"), (snapshot) => {
+    const btnUsuarios = document.getElementById("btnUsuarios");
+    const btnGeneral = document.getElementById("btnGeneral");
+
+    btnUsuarios.onclick = () => {
+      btnUsuarios.classList.add("active");
+      btnGeneral.classList.remove("active");
+      vistaUsuarios.style.display = "grid";
+      vistaGeneral.style.display = "none";
+    };
+
+    btnGeneral.onclick = () => {
+      btnGeneral.classList.add("active");
+      btnUsuarios.classList.remove("active");
+      vistaUsuarios.style.display = "none";
+      vistaGeneral.style.display = "block";
+    };
+
+    onValue(ref(db, "usuarios"), (snapshot) => {
       const data = snapshot.val();
-      cardsContainer.innerHTML = "";
-      let total = 0;
+      if (!data) return;
 
-      if (!data) {
-        cardsContainer.innerHTML = "<p style='text-align:center;'>No hay deudas registradas.</p>";
-        totalPending.textContent = "$0";
-        return;
-      }
+      vistaUsuarios.innerHTML = "";
+      tablaGeneral.innerHTML = "";
+      let totalGlobal = 0;
 
-      const debts = Object.values(data);
-
-      debts.forEach(debt => {
-        const nombre = debt.nombre || "Sin nombre";
-        const descripcion = debt.descripcion || "-";
-        const fecha = debt.fecha ? new Date(debt.fecha).toLocaleDateString() : "-";
-        const monto = parseFloat(debt.monto || 0);
-        const pagado = debt.pagado === true || debt.pagado === "true";
-
+      Object.values(data).forEach(usuario => {
         const card = document.createElement("div");
-        card.classList.add("card", pagado ? "paid" : "pending");
+        card.classList.add("card");
+        card.innerHTML = `<h3>${usuario.nombre}</h3>`;
 
-        card.innerHTML = `
-          <h3>${nombre}</h3>
-          <p><strong>Monto:</strong> $${monto.toFixed(2)}</p>
-          <p><strong>Fecha:</strong> ${fecha}</p>
-          <p><strong>Descripción:</strong> ${descripcion}</p>
-          <span class="status ${pagado ? "paid" : "pending"}">
-            ${pagado ? "Pagado" : "Pendiente"}
-          </span>
-        `;
+        let totalUsuario = 0;
 
-        cardsContainer.appendChild(card);
-        if (!pagado) total += monto;
+        if (usuario.deudas) {
+          Object.values(usuario.deudas).forEach(deuda => {
+            const monto = parseFloat(deuda.monto || 0);
+            const pagado = deuda.pagado === true;
+            const fecha = new Date(deuda.fecha).toLocaleDateString("es-CO");
+
+            const deudaDiv = document.createElement("div");
+            deudaDiv.classList.add("debt");
+            if (pagado) deudaDiv.classList.add("paid");
+            deudaDiv.innerHTML = `
+              <p><strong>${deuda.descripcion}</strong> - $${monto}</p>
+              <p><small>${fecha}</small></p>
+            `;
+            card.appendChild(deudaDiv);
+
+            // Tabla general
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${usuario.nombre}</td>
+              <td>${deuda.descripcion}</td>
+              <td>$${monto.toFixed(2)}</td>
+              <td>${fecha}</td>
+              <td>${pagado ? "Pagado" : "Pendiente"}</td>
+            `;
+            tablaGeneral.appendChild(row);
+
+            if (!pagado) totalUsuario += monto;
+          });
+        }
+
+        const totalDiv = document.createElement("p");
+        totalDiv.style.marginTop = "10px";
+        totalDiv.style.fontWeight = "bold";
+        totalDiv.innerHTML = `Total pendiente: $${totalUsuario.toFixed(2)}`;
+        card.appendChild(totalDiv);
+
+        vistaUsuarios.appendChild(card);
+        totalGlobal += totalUsuario;
       });
 
-      totalPending.textContent = `$${total.toFixed(2)}`;
+      totalPending.textContent = `$${totalGlobal.toFixed(2)}`;
     });
   </script>
 </body>
