@@ -6,7 +6,7 @@
   <title>Deudas registradas</title>
   <style>
     body {
-      background-color: #000;
+      background-color: #0b0c10;
       color: #fff;
       font-family: "Segoe UI", Arial, sans-serif;
       margin: 0;
@@ -15,67 +15,88 @@
 
     h1 {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
+      font-size: 1.8em;
+      color: #00aaff;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #111;
-      border: 1px solid #444;
-      margin-bottom: 20px;
+    .cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
     }
 
-    th, td {
-      padding: 12px;
-      text-align: left;
-      border-bottom: 1px solid #333;
+    .card {
+      border-radius: 12px;
+      padding: 15px;
+      background-color: #141414;
+      border: 1px solid #333;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    th {
-      background-color: #222;
-      color: #fff;
-      border-bottom: 2px solid #555;
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 0 12px rgba(0, 170, 255, 0.3);
     }
 
-    tr.paid {
-      background-color: rgba(100, 170, 255, 0.2); /* azul claro */
+    .card.paid {
+      border: 2px solid #2196f3;
+      background: linear-gradient(145deg, #0d47a1 0%, #0b2447 100%);
     }
 
-    tr.pending {
-      background-color: rgba(255, 100, 100, 0.2); /* rojo claro */
+    .card.pending {
+      border: 2px solid #ff5252;
+      background: linear-gradient(145deg, #8b0000 0%, #450000 100%);
+    }
+
+    .card h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.2em;
+    }
+
+    .card p {
+      margin: 4px 0;
+      font-size: 0.95em;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.8em;
+      font-weight: bold;
+      margin-top: 6px;
+    }
+
+    .status.paid {
+      background-color: rgba(33, 150, 243, 0.2);
+      color: #66ccff;
+      border: 1px solid #2196f3;
+    }
+
+    .status.pending {
+      background-color: rgba(255, 82, 82, 0.2);
+      color: #ff9999;
+      border: 1px solid #ff5252;
     }
 
     .total {
       font-size: 1.3em;
       text-align: right;
-      margin-top: 10px;
+      margin-top: 25px;
       font-weight: bold;
     }
 
     .total span {
-      color: #0af;
+      color: #00aaff;
     }
-
-    .card {
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 10px 15px;
-      background-color: #111;
-      margin-bottom: 15px;
-    }
-
   </style>
 </head>
 <body>
   <h1>💰 Deudas registradas</h1>
 
-  <table id="debtsTable">
-    <thead>
-      <tr id="tableHeader"></tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+  <div class="cards-container" id="cardsContainer"></div>
 
   <div class="total">
     Total pendiente: <span id="totalPending">$0</span>
@@ -85,7 +106,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    // ⚙️ Configura tu Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
       authDomain: "finanzas-9cf9a.firebaseapp.com",
@@ -96,47 +116,45 @@
       appId: "1:619666520117:web:769672477e884d8bed597c",
       measurementId: "G-SJX7L1VH78"
     };
- // =============================================
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const tableHeader = document.getElementById("tableHeader");
-    const tableBody = document.getElementById("tableBody");
+    const cardsContainer = document.getElementById("cardsContainer");
     const totalPending = document.getElementById("totalPending");
 
-    onValue(ref(db, "debts"), (snapshot) => {
+    onValue(ref(db, "deudas"), (snapshot) => {
       const data = snapshot.val();
-      tableBody.innerHTML = "";
+      cardsContainer.innerHTML = "";
       let total = 0;
 
       if (!data) {
-        tableHeader.innerHTML = "<th>Sin datos</th>";
+        cardsContainer.innerHTML = "<p style='text-align:center;'>No hay deudas registradas.</p>";
+        totalPending.textContent = "$0";
         return;
       }
 
       const debts = Object.values(data);
-      const columns = Object.keys(debts[0]);
-      tableHeader.innerHTML = columns.map(c => `<th>${c}</th>`).join("");
 
       debts.forEach(debt => {
         const isPaid = debt.isPaid === true || debt.isPaid === "true";
-        const row = document.createElement("tr");
-        row.classList.add(isPaid ? "paid" : "pending");
 
-        columns.forEach(c => {
-          const cell = document.createElement("td");
-          if (c === "amount") {
-            cell.textContent = `$${parseFloat(debt[c]).toFixed(2)}`;
-          } else if (c === "date") {
-            const d = new Date(debt[c]);
-            cell.textContent = d.toLocaleDateString();
-          } else {
-            cell.textContent = debt[c];
-          }
-          row.appendChild(cell);
-        });
+        const card = document.createElement("div");
+        card.classList.add("card", isPaid ? "paid" : "pending");
 
-        tableBody.appendChild(row);
+        const date = new Date(debt.date).toLocaleDateString();
+
+        card.innerHTML = `
+          <h3>${debt.name || "Sin nombre"}</h3>
+          <p><strong>Monto:</strong> $${parseFloat(debt.amount).toFixed(2)}</p>
+          <p><strong>Fecha:</strong> ${date}</p>
+          <p><strong>Descripción:</strong> ${debt.description || "-"}</p>
+          <span class="status ${isPaid ? "paid" : "pending"}">
+            ${isPaid ? "Pagado" : "Pendiente"}
+          </span>
+        `;
+
+        cardsContainer.appendChild(card);
         if (!isPaid) total += parseFloat(debt.amount);
       });
 
