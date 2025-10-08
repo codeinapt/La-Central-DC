@@ -39,6 +39,7 @@
       background-color: #007bff;
     }
 
+    /* --- Vista por usuario --- */
     .cards-container {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -82,6 +83,7 @@
       color: #00aaff;
     }
 
+    /* --- Vista general --- */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -102,17 +104,54 @@
     tr:nth-child(even) {
       background-color: #111;
     }
+
+    /* --- Vista matriz --- */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #111;
+      border: 1px solid #333;
+    }
+
+    .matrix-table th, .matrix-table td {
+      border: 1px solid #333;
+      text-align: center;
+      padding: 8px;
+      min-width: 100px;
+    }
+
+    .matrix-table th {
+      background-color: #1e1e2f;
+      color: #90caf9;
+    }
+
+    .matrix-table td {
+      background-color: #0b0c10;
+    }
+
+    .paid {
+      background-color: #0055ffcc; /* azul */
+    }
+
+    .pending {
+      background-color: #ff2222cc; /* rojo */
+    }
   </style>
 </head>
 <body>
   <h1>💰 Deudas registradas</h1>
 
+  <!-- 🔘 Botones de cambio de vista -->
   <div class="view-switch">
     <button id="btnUsuarios" class="active">👤 Por usuario</button>
     <button id="btnGeneral">📋 General</button>
+    <button id="btnMatriz">🧮 Matriz</button>
   </div>
 
+  <!-- 👤 Vista por usuario -->
   <div id="vistaUsuarios" class="cards-container"></div>
+
+  <!-- 📋 Vista general -->
   <div id="vistaGeneral" style="display:none;">
     <table>
       <thead>
@@ -125,6 +164,18 @@
         </tr>
       </thead>
       <tbody id="tablaGeneral"></tbody>
+    </table>
+  </div>
+
+  <!-- 🧮 Vista matriz -->
+  <div id="vistaMatriz" style="display:none;">
+    <table class="matrix-table">
+      <thead>
+        <tr id="encabezadoMatriz">
+          <th>Usuario</th>
+        </tr>
+      </thead>
+      <tbody id="cuerpoMatriz"></tbody>
     </table>
   </div>
 
@@ -150,36 +201,68 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // Referencias DOM
     const vistaUsuarios = document.getElementById("vistaUsuarios");
     const vistaGeneral = document.getElementById("vistaGeneral");
+    const vistaMatriz = document.getElementById("vistaMatriz");
     const tablaGeneral = document.getElementById("tablaGeneral");
+    const encabezadoMatriz = document.getElementById("encabezadoMatriz");
+    const cuerpoMatriz = document.getElementById("cuerpoMatriz");
     const totalPending = document.getElementById("totalPending");
 
     const btnUsuarios = document.getElementById("btnUsuarios");
     const btnGeneral = document.getElementById("btnGeneral");
+    const btnMatriz = document.getElementById("btnMatriz");
 
-    btnUsuarios.onclick = () => {
-      btnUsuarios.classList.add("active");
-      btnGeneral.classList.remove("active");
-      vistaUsuarios.style.display = "grid";
-      vistaGeneral.style.display = "none";
-    };
-
-    btnGeneral.onclick = () => {
-      btnGeneral.classList.add("active");
+    // Cambiar vistas
+    function mostrarVista(vista) {
       btnUsuarios.classList.remove("active");
+      btnGeneral.classList.remove("active");
+      btnMatriz.classList.remove("active");
       vistaUsuarios.style.display = "none";
-      vistaGeneral.style.display = "block";
-    };
+      vistaGeneral.style.display = "none";
+      vistaMatriz.style.display = "none";
 
+      if (vista === "usuarios") {
+        btnUsuarios.classList.add("active");
+        vistaUsuarios.style.display = "grid";
+      } else if (vista === "general") {
+        btnGeneral.classList.add("active");
+        vistaGeneral.style.display = "block";
+      } else if (vista === "matriz") {
+        btnMatriz.classList.add("active");
+        vistaMatriz.style.display = "block";
+      }
+    }
+
+    btnUsuarios.onclick = () => mostrarVista("usuarios");
+    btnGeneral.onclick = () => mostrarVista("general");
+    btnMatriz.onclick = () => mostrarVista("matriz");
+
+    // Cargar datos desde Firebase
     onValue(ref(db, "usuarios"), (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
 
       vistaUsuarios.innerHTML = "";
       tablaGeneral.innerHTML = "";
+      cuerpoMatriz.innerHTML = "";
+
       let totalGlobal = 0;
 
+      // --- Obtener todas las descripciones posibles ---
+      const descripciones = new Set();
+      Object.values(data).forEach(usuario => {
+        if (usuario.deudas) {
+          Object.values(usuario.deudas).forEach(deuda => {
+            descripciones.add(deuda.descripcion);
+          });
+        }
+      });
+      const columnas = Array.from(descripciones);
+      encabezadoMatriz.innerHTML = "<th>Usuario</th>" + columnas.map(c => `<th>${c}</th>`).join("");
+
+      // --- Renderizado por usuario ---
       Object.values(data).forEach(usuario => {
         const card = document.createElement("div");
         card.classList.add("card");
@@ -187,22 +270,30 @@
 
         let totalUsuario = 0;
 
+        // Vista general y matriz
+        const filaMatriz = document.createElement("tr");
+        let htmlFila = `<td>${usuario.nombre}</td>`;
+
+        columnas.forEach(col => {
+          htmlFila += `<td></td>`; // Se llenará luego
+        });
+
+        const celdaArray = htmlFila.match(/<td><\/td>/g) || [];
+
         if (usuario.deudas) {
           Object.values(usuario.deudas).forEach(deuda => {
             const monto = parseFloat(deuda.monto || 0);
             const pagado = deuda.pagado === true;
             const fecha = new Date(deuda.fecha).toLocaleDateString("es-CO");
 
+            // --- Vista por usuario ---
             const deudaDiv = document.createElement("div");
             deudaDiv.classList.add("debt");
             if (pagado) deudaDiv.classList.add("paid");
-            deudaDiv.innerHTML = `
-              <p><strong>${deuda.descripcion}</strong> - $${monto}</p>
-              <p><small>${fecha}</small></p>
-            `;
+            deudaDiv.innerHTML = `<p><strong>${deuda.descripcion}</strong> - $${monto}</p><p><small>${fecha}</small></p>`;
             card.appendChild(deudaDiv);
 
-            // Tabla general
+            // --- Vista general ---
             const row = document.createElement("tr");
             row.innerHTML = `
               <td>${usuario.nombre}</td>
@@ -213,9 +304,19 @@
             `;
             tablaGeneral.appendChild(row);
 
+            // --- Vista matriz ---
+            const colIndex = columnas.indexOf(deuda.descripcion);
+            if (colIndex >= 0) {
+              const estadoClase = pagado ? "paid" : "pending";
+              celdaArray[colIndex] = `<td class="${estadoClase}">$${monto}</td>`;
+            }
+
             if (!pagado) totalUsuario += monto;
           });
         }
+
+        filaMatriz.innerHTML = `<td>${usuario.nombre}</td>` + celdaArray.join("");
+        cuerpoMatriz.appendChild(filaMatriz);
 
         const totalDiv = document.createElement("p");
         totalDiv.style.marginTop = "10px";
