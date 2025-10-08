@@ -4,7 +4,105 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel Admin</title>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background-color: #0d1117;
+      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #00aaff;
+    }
+
+    .controls {
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .controls button {
+      background: #1e1e2f;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 10px 20px;
+      margin: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .controls button:hover {
+      background: #007bff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #111;
+      border: 1px solid #333;
+    }
+
+    th, td {
+      border: 1px solid #333;
+      text-align: center;
+      padding: 10px;
+      min-width: 90px;
+    }
+
+    th {
+      background-color: #1e1e2f;
+      color: #90caf9;
+    }
+
+    td {
+      background-color: #0b0c10;
+      cursor: pointer;
+    }
+
+    td.paid {
+      background: linear-gradient(90deg, #1e88e5, #90caf9);
+      color: #fff;
+    }
+
+    td.pending {
+      background: linear-gradient(90deg, #e53935, #ff8a80);
+      color: #fff;
+    }
+
+    #login {
+      text-align: center;
+      margin-top: 100px;
+    }
+
+    input[type=password] {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      color: #fff;
+      background: #222;
+    }
+
+    #contenido {
+      display: none;
+    }
+
+    #matrizDeudas {
+      display: block;
+    }
+
+    #seccionUsuarios,
+    #seccionDeudas {
+      display: none;
+    }
+
+    .small {
+      font-size: 0.8em;
+      opacity: 0.8;
+    }
+  </style>
 </head>
 <body>
   <h1>🔐 Panel de Administración</h1>
@@ -15,38 +113,48 @@
     <button onclick="verificarClave()">Entrar</button>
   </div>
 
-  <div id="contenido" style="display:none;">
-    <div class="container">
+  <div id="contenido">
+    <div class="controls">
+      <button onclick="mostrarSeccion('matriz')">📊 Matriz</button>
+      <button onclick="mostrarSeccion('usuarios')">👤 Usuarios</button>
+      <button onclick="mostrarSeccion('deudas')">💰 Deudas</button>
+    </div>
+
+    <!-- MATRIZ DE DEUDAS -->
+    <div id="matrizDeudas">
+      <h2>📊 Control de Deudas</h2>
+      <table>
+        <thead>
+          <tr id="encabezadoMatriz"><th>Usuario</th></tr>
+        </thead>
+        <tbody id="cuerpoMatriz"></tbody>
+      </table>
+    </div>
+
+    <!-- Sección Usuarios -->
+    <div id="seccionUsuarios">
+      <h2>Usuarios</h2>
       <div class="controls">
-        <button onclick="mostrarSeccion('usuarios')">👤 Usuarios</button>
-        <button onclick="mostrarSeccion('deudas')">💰 Deudas</button>
+        <input id="nombreUsuario" placeholder="Nombre del usuario" />
+        <button id="btnAgregarUsuario">Agregar Usuario</button>
       </div>
+      <table id="tablaUsuarios">
+        <tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>
+      </table>
+    </div>
 
-      <!-- Sección Usuarios -->
-      <div id="seccionUsuarios">
-        <h2>Usuarios</h2>
-        <div class="controls">
-          <input id="nombreUsuario" placeholder="Nombre del usuario" />
-          <button id="btnAgregarUsuario">Agregar Usuario</button>
-        </div>
-        <table id="tablaUsuarios">
-          <tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>
-        </table>
+    <!-- Sección Deudas -->
+    <div id="seccionDeudas">
+      <h2>Deudas</h2>
+      <div class="controls">
+        <input id="descripcion" placeholder="Descripción" />
+        <input id="monto" type="number" placeholder="Monto" />
+        <input id="fecha" type="date" />
+        <button id="btnAgregarDeuda">Agregar Deuda</button>
       </div>
-
-      <!-- Sección Deudas -->
-      <div id="seccionDeudas" style="display:none;">
-        <h2>Deudas</h2>
-        <div class="controls">
-          <input id="descripcion" placeholder="Descripción" />
-          <input id="monto" type="number" placeholder="Monto" />
-          <input id="fecha" type="date" />
-          <button id="btnAgregarDeuda">Agregar Deuda</button>
-        </div>
-        <table id="tablaDeudas">
-          <tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>
-        </table>
-      </div>
+      <table id="tablaDeudas">
+        <tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>
+      </table>
     </div>
   </div>
 
@@ -55,7 +163,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script>
-  // Configuración Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
     authDomain: "finanzas-9cf9a.firebaseapp.com",
@@ -79,17 +186,73 @@
     if (clave === CLAVE_ADMIN) {
       document.getElementById("login").style.display = "none";
       document.getElementById("contenido").style.display = "block";
-      cargarUsuarios();
-      cargarDeudas();
+      mostrarSeccion('matriz');
+      cargarMatriz();
     } else alert("Clave incorrecta");
   }
 
   function mostrarSeccion(seccion) {
+    document.getElementById("matrizDeudas").style.display = seccion === "matriz" ? "block" : "none";
     document.getElementById("seccionUsuarios").style.display = seccion === "usuarios" ? "block" : "none";
     document.getElementById("seccionDeudas").style.display = seccion === "deudas" ? "block" : "none";
   }
 
-  // 🧍 Agregar usuario
+  // === MATRIZ ===
+  function cargarMatriz() {
+    refUsuarios.on("value", (snap) => {
+      const data = snap.val() || {};
+      const encabezado = document.getElementById("encabezadoMatriz");
+      const cuerpo = document.getElementById("cuerpoMatriz");
+
+      encabezado.innerHTML = "<th>Usuario</th>";
+      cuerpo.innerHTML = "";
+
+      // Recolectar todas las descripciones de deudas
+      const descripciones = new Set();
+      Object.values(data).forEach((usuario) => {
+        if (usuario.deudas) {
+          Object.values(usuario.deudas).forEach((d) => descripciones.add(d.descripcion));
+        }
+      });
+
+      const columnas = Array.from(descripciones);
+      encabezado.innerHTML += columnas.map((d) => `<th>${d}</th>`).join("");
+
+      for (const [idUsuario, usuario] of Object.entries(data)) {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `<td>${usuario.nombre}</td>`;
+
+        columnas.forEach((desc) => {
+          const deuda = Object.entries(usuario.deudas || {}).find(
+            ([, d]) => d.descripcion === desc
+          );
+          if (deuda) {
+            const [idDeuda, d] = deuda;
+            const celda = document.createElement("td");
+            celda.textContent = `$${d.monto}`;
+            celda.className = d.pagado ? "paid" : "pending";
+            celda.onclick = () => togglePagado(idUsuario, idDeuda);
+            fila.appendChild(celda);
+          } else {
+            fila.innerHTML += "<td></td>";
+          }
+        });
+
+        cuerpo.appendChild(fila);
+      }
+    });
+  }
+
+  // Cambiar estado de pago desde la matriz
+  function togglePagado(idUsuario, idDeuda) {
+    const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
+    refDeuda.once("value").then((snap) => {
+      const actual = snap.val();
+      refDeuda.update({ pagado: !actual.pagado });
+    });
+  }
+
+  // === RESTO DE FUNCIONALIDADES ORIGINALES ===
   document.getElementById("btnAgregarUsuario").addEventListener("click", async () => {
     const nombre = document.getElementById("nombreUsuario").value.trim();
     if (!nombre) return alert("Ingrese un nombre");
@@ -104,7 +267,6 @@
     document.getElementById("nombreUsuario").value = "";
   });
 
-  // 💰 Agregar deuda
   document.getElementById("btnAgregarDeuda").addEventListener("click", async () => {
     const descripcion = document.getElementById("descripcion").value.trim();
     const monto = document.getElementById("monto").value.trim();
@@ -115,9 +277,8 @@
     const nuevaDeuda = { descripcion, monto, fecha };
     await nuevaRef.set(nuevaDeuda);
 
-    // Asignar a todos los usuarios
     const snapshotUsuarios = await refUsuarios.get();
-    snapshotUsuarios.forEach(u => {
+    snapshotUsuarios.forEach((u) => {
       db.ref(`usuarios/${u.key}/deudas/${nuevaRef.key}`).set({ ...nuevaDeuda, pagado: false });
     });
 
@@ -126,59 +287,6 @@
     document.getElementById("fecha").value = "";
   });
 
-  // 👥 Cargar usuarios
-  function cargarUsuarios() {
-    refUsuarios.on("value", (snap) => {
-      const data = snap.val() || {};
-      const tabla = document.getElementById("tablaUsuarios");
-      tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>";
-      for (let id in data) {
-        const usuario = data[id];
-        let deudasHtml = "";
-        if (usuario.deudas) {
-          // Ordenar deudas por fecha descendente
-          const deudasOrdenadas = Object.entries(usuario.deudas).sort((a, b) => new Date(b[1].fecha) - new Date(a[1].fecha));
-          for (let [idDeuda, deuda] of deudasOrdenadas) {
-            const estilo = deuda.pagado ? 'style="background:#0044cc;"' : "";
-            const fechaFmt = formatearFecha(deuda.fecha);
-            deudasHtml += `<div ${estilo} onclick="togglePagado('${id}','${idDeuda}')">
-              ${deuda.descripcion}: $${deuda.monto} <span class='small'>(${fechaFmt})</span>
-            </div>`;
-          }
-        }
-        tabla.innerHTML += `
-          <tr>
-            <td>${usuario.nombre}</td>
-            <td>${deudasHtml}</td>
-            <td><button class="btn-danger" onclick="eliminarUsuario('${id}')">🗑</button></td>
-          </tr>`;
-      }
-    });
-  }
-
-  // 📋 Cargar deudas
-  function cargarDeudas() {
-    refDeudas.on("value", (snap) => {
-      const data = snap.val() || {};
-      const tabla = document.getElementById("tablaDeudas");
-      tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>";
-
-      // Ordenar por fecha (más reciente primero)
-      const deudasOrdenadas = Object.entries(data).sort((a, b) => new Date(b[1].fecha) - new Date(a[1].fecha));
-      for (let [id, deuda] of deudasOrdenadas) {
-        const fechaFmt = formatearFecha(deuda.fecha);
-        tabla.innerHTML += `
-          <tr>
-            <td>${deuda.descripcion}</td>
-            <td>${deuda.monto}</td>
-            <td>${fechaFmt}</td>
-            <td><button class="btn-danger" onclick="eliminarDeuda('${id}')">🗑</button></td>
-          </tr>`;
-      }
-    });
-  }
-
-  // 📅 Formatear fecha legible
   function formatearFecha(fechaIso) {
     try {
       const fecha = new Date(fechaIso);
@@ -192,32 +300,20 @@
     }
   }
 
-  // 🔄 Cambiar estado de pago
-  function togglePagado(idUsuario, idDeuda) {
-    const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
-    refDeuda.once("value").then((snap) => {
-      const actual = snap.val();
-      refDeuda.update({ pagado: !actual.pagado });
-    });
-  }
-
-  // ❌ Eliminar usuario
   function eliminarUsuario(idUsuario) {
     if (confirm("¿Seguro que deseas eliminar este usuario?")) {
       db.ref(`usuarios/${idUsuario}`).remove();
     }
   }
 
-  // ❌ Eliminar deuda
   async function eliminarDeuda(idDeuda) {
     if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
     await db.ref(`deudas/${idDeuda}`).remove();
     const snapshotUsuarios = await refUsuarios.get();
-    snapshotUsuarios.forEach(u => {
+    snapshotUsuarios.forEach((u) => {
       db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
     });
   }
-</script>
-
+  </script>
 </body>
 </html>
