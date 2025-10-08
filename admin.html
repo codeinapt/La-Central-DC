@@ -40,10 +40,11 @@
         <div class="controls">
           <input id="descripcion" placeholder="Descripción" />
           <input id="monto" type="number" placeholder="Monto" />
+          <input id="fecha" type="date" />
           <button id="btnAgregarDeuda">Agregar Deuda</button>
         </div>
         <table id="tablaDeudas">
-          <tr><th>Descripción</th><th>Monto</th><th>Acción</th></tr>
+          <tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>
         </table>
       </div>
     </div>
@@ -54,147 +55,169 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
   <script>
-    // Configuración Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
-      authDomain: "finanzas-9cf9a.firebaseapp.com",
-      databaseURL: "https://finanzas-9cf9a-default-rtdb.firebaseio.com",
-      projectId: "finanzas-9cf9a",
-      storageBucket: "finanzas-9cf9a.firebasestorage.app",
-      messagingSenderId: "619666520117",
-      appId: "1:619666520117:web:769672477e884d8bed597c",
-      measurementId: "G-SJX7L1VH78"
-    };
+  // Configuración Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyAX52Luy0Ehmy2Gzcj9E_oV4NgLTngIrsw",
+    authDomain: "finanzas-9cf9a.firebaseapp.com",
+    databaseURL: "https://finanzas-9cf9a-default-rtdb.firebaseio.com",
+    projectId: "finanzas-9cf9a",
+    storageBucket: "finanzas-9cf9a.firebasestorage.app",
+    messagingSenderId: "619666520117",
+    appId: "1:619666520117:web:769672477e884d8bed597c",
+    measurementId: "G-SJX7L1VH78"
+  };
 
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database(app);
-    const refUsuarios = db.ref("usuarios");
-    const refDeudas = db.ref("deudas");
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.database(app);
+  const refUsuarios = db.ref("usuarios");
+  const refDeudas = db.ref("deudas");
 
-    const CLAVE_ADMIN = "12345";
+  const CLAVE_ADMIN = "12345";
 
-    function verificarClave() {
-      const clave = document.getElementById("clave").value;
-      if (clave === CLAVE_ADMIN) {
-        document.getElementById("login").style.display = "none";
-        document.getElementById("contenido").style.display = "block";
-        cargarUsuarios();
-        cargarDeudas();
-      } else alert("Clave incorrecta");
+  function verificarClave() {
+    const clave = document.getElementById("clave").value;
+    if (clave === CLAVE_ADMIN) {
+      document.getElementById("login").style.display = "none";
+      document.getElementById("contenido").style.display = "block";
+      cargarUsuarios();
+      cargarDeudas();
+    } else alert("Clave incorrecta");
+  }
+
+  function mostrarSeccion(seccion) {
+    document.getElementById("seccionUsuarios").style.display = seccion === "usuarios" ? "block" : "none";
+    document.getElementById("seccionDeudas").style.display = seccion === "deudas" ? "block" : "none";
+  }
+
+  // 🧍 Agregar usuario
+  document.getElementById("btnAgregarUsuario").addEventListener("click", async () => {
+    const nombre = document.getElementById("nombreUsuario").value.trim();
+    if (!nombre) return alert("Ingrese un nombre");
+    const nuevoRef = refUsuarios.push();
+    const snapshotDeudas = await refDeudas.get();
+    const deudasExistentes = snapshotDeudas.val() || {};
+    const deudasUsuario = {};
+    for (const id in deudasExistentes) {
+      deudasUsuario[id] = { ...deudasExistentes[id], pagado: false };
     }
+    await nuevoRef.set({ nombre, deudas: deudasUsuario });
+    document.getElementById("nombreUsuario").value = "";
+  });
 
-    function mostrarSeccion(seccion) {
-      document.getElementById("seccionUsuarios").style.display = seccion === "usuarios" ? "block" : "none";
-      document.getElementById("seccionDeudas").style.display = seccion === "deudas" ? "block" : "none";
-    }
+  // 💰 Agregar deuda
+  document.getElementById("btnAgregarDeuda").addEventListener("click", async () => {
+    const descripcion = document.getElementById("descripcion").value.trim();
+    const monto = document.getElementById("monto").value.trim();
+    const fecha = document.getElementById("fecha").value;
+    if (!descripcion || !monto || !fecha) return alert("Complete todos los campos");
 
-    // ➕ Agregar usuario
-    document.getElementById("btnAgregarUsuario").addEventListener("click", async () => {
-      const nombre = document.getElementById("nombreUsuario").value.trim();
-      if (!nombre) return alert("Ingrese un nombre");
-      const nuevoRef = refUsuarios.push();
-      const snapshotDeudas = await refDeudas.get();
-      const deudasExistentes = snapshotDeudas.val() || {};
-      const deudasUsuario = {};
-      for (const id in deudasExistentes) {
-        deudasUsuario[id] = { ...deudasExistentes[id], pagado: false };
-      }
-      await nuevoRef.set({ nombre, deudas: deudasUsuario });
-      document.getElementById("nombreUsuario").value = "";
+    const nuevaRef = refDeudas.push();
+    const nuevaDeuda = { descripcion, monto, fecha };
+    await nuevaRef.set(nuevaDeuda);
+
+    // Asignar a todos los usuarios
+    const snapshotUsuarios = await refUsuarios.get();
+    snapshotUsuarios.forEach(u => {
+      db.ref(`usuarios/${u.key}/deudas/${nuevaRef.key}`).set({ ...nuevaDeuda, pagado: false });
     });
 
-    // ➕ Agregar deuda
-    document.getElementById("btnAgregarDeuda").addEventListener("click", async () => {
-      const descripcion = document.getElementById("descripcion").value.trim();
-      const monto = document.getElementById("monto").value.trim();
-      if (!descripcion || !monto) return alert("Complete los campos");
-      const nuevaRef = refDeudas.push();
-      await nuevaRef.set({ descripcion, monto });
+    document.getElementById("descripcion").value = "";
+    document.getElementById("monto").value = "";
+    document.getElementById("fecha").value = "";
+  });
 
-      // Asignar esta deuda a todos los usuarios
-      const snapshotUsuarios = await refUsuarios.get();
-      snapshotUsuarios.forEach(u => {
-        db.ref(`usuarios/${u.key}/deudas/${nuevaRef.key}`).set({ descripcion, monto, pagado: false });
-      });
-
-      document.getElementById("descripcion").value = "";
-      document.getElementById("monto").value = "";
-    });
-
-    // 👥 Cargar usuarios
-    function cargarUsuarios() {
-      refUsuarios.on("value", (snap) => {
-        const data = snap.val() || {};
-        const tabla = document.getElementById("tablaUsuarios");
-        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>";
-        for (let id in data) {
-          const usuario = data[id];
-          let deudasHtml = "";
-          if (usuario.deudas) {
-            for (let idDeuda in usuario.deudas) {
-              const deuda = usuario.deudas[idDeuda];
-              const estilo = deuda.pagado ? 'style="background:#0044cc;"' : "";
-              deudasHtml += `<div ${estilo} onclick="togglePagado('${id}','${idDeuda}')">
-                ${deuda.descripcion}: $${deuda.monto}
-              </div>`;
-            }
+  // 👥 Cargar usuarios
+  function cargarUsuarios() {
+    refUsuarios.on("value", (snap) => {
+      const data = snap.val() || {};
+      const tabla = document.getElementById("tablaUsuarios");
+      tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>";
+      for (let id in data) {
+        const usuario = data[id];
+        let deudasHtml = "";
+        if (usuario.deudas) {
+          // Ordenar deudas por fecha descendente
+          const deudasOrdenadas = Object.entries(usuario.deudas).sort((a, b) => new Date(b[1].fecha) - new Date(a[1].fecha));
+          for (let [idDeuda, deuda] of deudasOrdenadas) {
+            const estilo = deuda.pagado ? 'style="background:#0044cc;"' : "";
+            const fechaFmt = formatearFecha(deuda.fecha);
+            deudasHtml += `<div ${estilo} onclick="togglePagado('${id}','${idDeuda}')">
+              ${deuda.descripcion}: $${deuda.monto} <span class='small'>(${fechaFmt})</span>
+            </div>`;
           }
-          tabla.innerHTML += `
-            <tr>
-              <td>${usuario.nombre}</td>
-              <td>${deudasHtml}</td>
-              <td><button class="btn-danger" onclick="eliminarUsuario('${id}')">🗑</button></td>
-            </tr>`;
         }
-      });
-    }
-
-    // 💰 Cargar deudas
-    function cargarDeudas() {
-      refDeudas.on("value", (snap) => {
-        const data = snap.val() || {};
-        const tabla = document.getElementById("tablaDeudas");
-        tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th><th>Acción</th></tr>";
-        for (let id in data) {
-          tabla.innerHTML += `
-            <tr>
-              <td>${data[id].descripcion}</td>
-              <td>${data[id].monto}</td>
-              <td><button class="btn-danger" onclick="eliminarDeuda('${id}')">🗑</button></td>
-            </tr>`;
-        }
-      });
-    }
-
-    // 🔄 Cambiar estado de pago
-    function togglePagado(idUsuario, idDeuda) {
-      const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
-      refDeuda.once("value").then((snap) => {
-        const actual = snap.val();
-        refDeuda.update({ pagado: !actual.pagado });
-      });
-    }
-
-    // ❌ Eliminar usuario
-    function eliminarUsuario(idUsuario) {
-      if (confirm("¿Seguro que deseas eliminar este usuario?")) {
-        db.ref(`usuarios/${idUsuario}`).remove();
+        tabla.innerHTML += `
+          <tr>
+            <td>${usuario.nombre}</td>
+            <td>${deudasHtml}</td>
+            <td><button class="btn-danger" onclick="eliminarUsuario('${id}')">🗑</button></td>
+          </tr>`;
       }
-    }
+    });
+  }
 
-    // ❌ Eliminar deuda
-    async function eliminarDeuda(idDeuda) {
-      if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
+  // 📋 Cargar deudas
+  function cargarDeudas() {
+    refDeudas.on("value", (snap) => {
+      const data = snap.val() || {};
+      const tabla = document.getElementById("tablaDeudas");
+      tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Acción</th></tr>";
 
-      // 1️⃣ Eliminar de /deudas
-      await db.ref(`deudas/${idDeuda}`).remove();
+      // Ordenar por fecha (más reciente primero)
+      const deudasOrdenadas = Object.entries(data).sort((a, b) => new Date(b[1].fecha) - new Date(a[1].fecha));
+      for (let [id, deuda] of deudasOrdenadas) {
+        const fechaFmt = formatearFecha(deuda.fecha);
+        tabla.innerHTML += `
+          <tr>
+            <td>${deuda.descripcion}</td>
+            <td>${deuda.monto}</td>
+            <td>${fechaFmt}</td>
+            <td><button class="btn-danger" onclick="eliminarDeuda('${id}')">🗑</button></td>
+          </tr>`;
+      }
+    });
+  }
 
-      // 2️⃣ Eliminar de todos los usuarios
-      const snapshotUsuarios = await refUsuarios.get();
-      snapshotUsuarios.forEach(u => {
-        db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
+  // 📅 Formatear fecha legible
+  function formatearFecha(fechaIso) {
+    try {
+      const fecha = new Date(fechaIso);
+      return fecha.toLocaleDateString("es-CO", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
       });
+    } catch {
+      return fechaIso;
     }
-  </script>
+  }
+
+  // 🔄 Cambiar estado de pago
+  function togglePagado(idUsuario, idDeuda) {
+    const refDeuda = db.ref(`usuarios/${idUsuario}/deudas/${idDeuda}`);
+    refDeuda.once("value").then((snap) => {
+      const actual = snap.val();
+      refDeuda.update({ pagado: !actual.pagado });
+    });
+  }
+
+  // ❌ Eliminar usuario
+  function eliminarUsuario(idUsuario) {
+    if (confirm("¿Seguro que deseas eliminar este usuario?")) {
+      db.ref(`usuarios/${idUsuario}`).remove();
+    }
+  }
+
+  // ❌ Eliminar deuda
+  async function eliminarDeuda(idDeuda) {
+    if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
+    await db.ref(`deudas/${idDeuda}`).remove();
+    const snapshotUsuarios = await refUsuarios.get();
+    snapshotUsuarios.forEach(u => {
+      db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
+    });
+  }
+</script>
+
 </body>
 </html>
