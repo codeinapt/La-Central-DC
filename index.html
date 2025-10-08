@@ -137,10 +137,67 @@
       color: #00aaff;
       font-size: 1.15em;
     }
+
+    <!-- Inicio: bloque "Enviar por Nequi" -->
+<style>
+  .nequi-box {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: linear-gradient(90deg, rgba(13,17,23,0.6), rgba(20,24,30,0.6));
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.04);
+    max-width: 420px;
+    margin: 12px auto;
+  }
+  .nequi-number {
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    font-size: 1.05rem;
+  }
+  .nequi-actions { margin-left: auto; display:flex; gap:8px; }
+  .btn {
+    background: #0b1220;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight:600;
+  }
+  .btn.copy { background: linear-gradient(90deg,#1e88e5,#90caf9); color:#00243a; }
+  .btn.nequi { background: linear-gradient(90deg,#e53935,#ff8a80); color:#330000; }
+  .toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    display: none;
+    z-index: 9999;
+  }
   </style>
 </head>
 <body>
   <h1>💰 Deudas registradas</h1>
+  <div class="nequi-box" id="nequiBlock">
+  <div>
+    <div style="font-size:.85rem;color:#9fbfe6">Enviar a</div>
+    <div class="nequi-number" id="nequiNumber">3194583545</div>
+  </div>
+
+  <div class="nequi-actions">
+    <button class="btn copy" id="btnCopy">Copiar</button>
+    <button class="btn nequi" id="btnNequi">Enviar por Nequi</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copiado al portapapeles</div>
 
   <div class="view-switch">
     <button id="btnUsuarios" class="active">👤 Por usuario</button>
@@ -281,6 +338,60 @@
 
       totalPending.textContent = `$${totalGlobal.toFixed(2)}`;
     });
+
+    (function(){
+    const number = "3194583545"; // número sin espacios para copiar / usar
+    const displayNumber = document.getElementById("nequiNumber").textContent.trim();
+    const btnCopy = document.getElementById("btnCopy");
+    const btnNequi = document.getElementById("btnNequi");
+    const toast = document.getElementById("toast");
+
+    function showToast(msg = "Copiado al portapapeles") {
+      toast.textContent = msg;
+      toast.style.display = "block";
+      clearTimeout(toast._timeout);
+      toast._timeout = setTimeout(() => { toast.style.display = "none"; }, 2000);
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // fallback
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        return true;
+      } catch (e) {
+        console.error("Error copiando:", e);
+        return false;
+      }
+    }
+
+    btnCopy.addEventListener("click", async () => {
+      const ok = await copyToClipboard(number);
+      if (ok) showToast(`Número ${displayNumber} copiado`);
+      else showToast("No se pudo copiar");
+    });
+
+    btnNequi.addEventListener("click", async () => {
+      // copia y abre la página de Nequi (puedes cambiar URL por deep link si lo deseas)
+      const ok = await copyToClipboard(number);
+      if (ok) showToast(`Número ${displayNumber} copiado — abre Nequi`);
+      else showToast("Número copiado (fallback)");
+
+      // Abrir la web de Nequi (o cambia a la URL que uses para enviar)
+      // Si tienes un deep-link válido (ej. nequi://...), reemplázalo aquí.
+      window.open("https://www.nequi.com/", "_blank", "noopener");
+    });
+  })();
   </script>
 </body>
 </html>
