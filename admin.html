@@ -30,7 +30,7 @@
           <button id="btnAgregarUsuario">Agregar Usuario</button>
         </div>
         <table id="tablaUsuarios">
-          <tr><th>Nombre</th><th>Deudas</th></tr>
+          <tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>
         </table>
       </div>
 
@@ -43,7 +43,7 @@
           <button id="btnAgregarDeuda">Agregar Deuda</button>
         </div>
         <table id="tablaDeudas">
-          <tr><th>Descripción</th><th>Monto</th></tr>
+          <tr><th>Descripción</th><th>Monto</th><th>Acción</th></tr>
         </table>
       </div>
     </div>
@@ -126,7 +126,7 @@
       refUsuarios.on("value", (snap) => {
         const data = snap.val() || {};
         const tabla = document.getElementById("tablaUsuarios");
-        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th></tr>";
+        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th><th>Acción</th></tr>";
         for (let id in data) {
           const usuario = data[id];
           let deudasHtml = "";
@@ -139,7 +139,12 @@
               </div>`;
             }
           }
-          tabla.innerHTML += `<tr><td>${usuario.nombre}</td><td>${deudasHtml}</td></tr>`;
+          tabla.innerHTML += `
+            <tr>
+              <td>${usuario.nombre}</td>
+              <td>${deudasHtml}</td>
+              <td><button class="btn-danger" onclick="eliminarUsuario('${id}')">🗑</button></td>
+            </tr>`;
         }
       });
     }
@@ -149,9 +154,14 @@
       refDeudas.on("value", (snap) => {
         const data = snap.val() || {};
         const tabla = document.getElementById("tablaDeudas");
-        tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th></tr>";
+        tabla.innerHTML = "<tr><th>Descripción</th><th>Monto</th><th>Acción</th></tr>";
         for (let id in data) {
-          tabla.innerHTML += `<tr><td>${data[id].descripcion}</td><td>${data[id].monto}</td></tr>`;
+          tabla.innerHTML += `
+            <tr>
+              <td>${data[id].descripcion}</td>
+              <td>${data[id].monto}</td>
+              <td><button class="btn-danger" onclick="eliminarDeuda('${id}')">🗑</button></td>
+            </tr>`;
         }
       });
     }
@@ -162,6 +172,27 @@
       refDeuda.once("value").then((snap) => {
         const actual = snap.val();
         refDeuda.update({ pagado: !actual.pagado });
+      });
+    }
+
+    // ❌ Eliminar usuario
+    function eliminarUsuario(idUsuario) {
+      if (confirm("¿Seguro que deseas eliminar este usuario?")) {
+        db.ref(`usuarios/${idUsuario}`).remove();
+      }
+    }
+
+    // ❌ Eliminar deuda
+    async function eliminarDeuda(idDeuda) {
+      if (!confirm("¿Seguro que deseas eliminar esta deuda?")) return;
+
+      // 1️⃣ Eliminar de /deudas
+      await db.ref(`deudas/${idDeuda}`).remove();
+
+      // 2️⃣ Eliminar de todos los usuarios
+      const snapshotUsuarios = await refUsuarios.get();
+      snapshotUsuarios.forEach(u => {
+        db.ref(`usuarios/${u.key}/deudas/${idDeuda}`).remove();
       });
     }
   </script>
