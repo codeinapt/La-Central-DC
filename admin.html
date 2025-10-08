@@ -16,17 +16,22 @@
   </div>
 
   <div id="contenido" style="display:none;">
+    <!-- Sección usuarios -->
+    <h2>👥 Agregar usuario</h2>
     <input id="nombre" placeholder="Nombre" />
-    <input id="deuda" type="number" placeholder="Deuda" />
-    <button id="btnAgregar">Agregar</button>
+    <button id="btnAgregarUsuario">Agregar Usuario</button>
 
-    <h2>Usuarios registrados</h2>
+    <!-- Sección deudas -->
+    <h2>💰 Crear nueva deuda</h2>
+    <input id="montoDeuda" type="number" placeholder="Monto de deuda" />
+    <button id="btnAgregarDeuda">Asignar deuda a todos</button>
+
+    <h2>📋 Usuarios y deudas</h2>
     <table id="tabla">
-      <tr><th>Nombre</th><th>Deuda</th></tr>
+      <tr><th>Nombre</th><th>Deudas</th></tr>
     </table>
   </div>
 
-  <!-- Firebase SDK -->
   <!-- Firebase SDK compat -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -45,10 +50,9 @@
     };
 
     const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database(app);
+    const db = firebase.database();
     const refUsuarios = db.ref("usuarios");
 
-    // ✅ Clave simple
     const CLAVE_ADMIN = "12345";
 
     function verificarClave() {
@@ -63,30 +67,61 @@
     }
 
     // 🧠 Agregar usuario
-    function agregarUsuario(nombre, deuda) {
-      const nuevo = refUsuarios.push();
-      nuevo.set({ nombre, deuda });
-    }
-
-    // 🖱 Botón agregar
-    document.getElementById("btnAgregar").addEventListener("click", () => {
+    document.getElementById("btnAgregarUsuario").addEventListener("click", () => {
       const nombre = document.getElementById("nombre").value.trim();
-      const deuda = document.getElementById("deuda").value.trim();
-      if (nombre && deuda) {
-        agregarUsuario(nombre, deuda);
-        document.getElementById("nombre").value = "";
-        document.getElementById("deuda").value = "";
-      }
+      if (!nombre) return alert("Escribe un nombre");
+      const nuevo = refUsuarios.push();
+      nuevo.set({ nombre, deudas: {} });
+      document.getElementById("nombre").value = "";
     });
 
-    // 📥 Cargar usuarios
+    // 💰 Asignar deuda a todos los usuarios
+    document.getElementById("btnAgregarDeuda").addEventListener("click", async () => {
+      const monto = document.getElementById("montoDeuda").value.trim();
+      if (!monto) return alert("Ingresa un monto");
+
+      const snapshot = await refUsuarios.once("value");
+      const usuarios = snapshot.val();
+      const nuevaDeudaId = Date.now();
+
+      for (let uid in usuarios) {
+        db.ref(`usuarios/${uid}/deudas/${nuevaDeudaId}`).set({
+          monto: parseFloat(monto),
+          pagado: false
+        });
+      }
+
+      alert("Deuda asignada a todos los usuarios.");
+      document.getElementById("montoDeuda").value = "";
+    });
+
+    // 🟦 Cambiar estado de pago
+    function togglePago(uid, deudaId, actual) {
+      db.ref(`usuarios/${uid}/deudas/${deudaId}/pagado`).set(!actual);
+    }
+
+    // 📥 Cargar usuarios y deudas
     function cargarDatos() {
       refUsuarios.on("value", (snapshot) => {
         const data = snapshot.val();
         const tabla = document.getElementById("tabla");
-        tabla.innerHTML = "<tr><th>Nombre</th><th>Deuda</th></tr>";
-        for (let id in data) {
-          tabla.innerHTML += `<tr><td>${data[id].nombre}</td><td>${data[id].deuda}</td></tr>`;
+        tabla.innerHTML = "<tr><th>Nombre</th><th>Deudas</th></tr>";
+
+        for (let uid in data) {
+          let fila = `<tr><td>${data[uid].nombre}</td><td>`;
+          if (data[uid].deudas) {
+            for (let deudaId in data[uid].deudas) {
+              const deuda = data[uid].deudas[deudaId];
+              const color = deuda.pagado ? "style='color:blue;'" : "";
+              fila += `<span ${color} onclick="togglePago('${uid}','${deudaId}',${deuda.pagado})">
+                        💵 ${deuda.monto}
+                      </span><br>`;
+            }
+          } else {
+            fila += "Sin deudas";
+          }
+          fila += "</td></tr>";
+          tabla.innerHTML += fila;
         }
       });
     }
