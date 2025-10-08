@@ -1,187 +1,87 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>💰 Deudas registradas</title>
   <style>
-    body {
-      background-color: #0d1117;
-      color: #fff;
-      font-family: "Segoe UI", Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-    }
+    /* --- general --- */
+    body { background:#0d1117; color:#fff; font-family:"Segoe UI",Arial,sans-serif; margin:0; padding:20px; }
+    h1 { text-align:center; color:#00aaff; margin-bottom:15px; }
 
-    h1 {
-      text-align: center;
-      margin-bottom: 15px;
-      color: #00aaff;
-    }
-
-    .view-switch {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
+    .view-switch { text-align:center; margin-bottom:20px; }
     .view-switch button {
-      background-color: #1e1e2f;
-      color: #fff;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 10px 20px;
-      margin: 0 5px;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      background:#1e1e2f; color:#fff; border:1px solid #333; border-radius:8px;
+      padding:10px 20px; margin:0 6px; cursor:pointer;
     }
+    .view-switch button.active { background:#007bff; }
 
-    .view-switch button.active {
-      background-color: #007bff;
-    }
+    /* --- tarjetas (por usuario) --- */
+    .cards-container { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+    .card { border-radius:12px; padding:16px; background:#161b22; border:1px solid #333; transition:transform .18s; }
+    .card:hover { transform:translateY(-4px); }
+    .card h3 { margin:0 0 8px 0; color:#90caf9; }
+    .debt { background:#111; margin-top:6px; padding:8px; border-radius:6px; border-left:4px solid #e53935; }
+    .debt.paid { border-left-color:#1e88e5; background:rgba(30,136,229,0.08); }
 
-    /* --- Vista por usuario --- */
-    .cards-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 16px;
-    }
+    /* --- tabla general --- */
+    table { width:100%; border-collapse:collapse; background:#161b22; margin-top:6px; }
+    th,td { border:1px solid #333; padding:10px; text-align:left; vertical-align:middle; }
+    th { background:#1f2937; color:#90caf9; }
+    tr:nth-child(even) td { background:#0f1317; }
 
-    .card {
-      border-radius: 12px;
-      padding: 16px;
-      background: #161b22;
-      border: 1px solid #333;
-      transition: transform 0.2s;
-    }
+    /* --- matriz --- */
+    .matrix-table { width:100%; border-collapse:collapse; background:#111; border:1px solid #333; margin-top:6px; }
+    .matrix-table th, .matrix-table td { border:1px solid #333; text-align:center; padding:8px; min-width:90px; vertical-align:middle; }
+    .matrix-table th { background:#1e1e2f; color:#90caf9; }
+    .matrix-table td { background:#0b0c10; }
 
-    .card:hover {
-      transform: translateY(-4px);
+    /* pills dentro de la matriz */
+    .matrix-table .pill {
+      display:inline-block;
+      padding:6px 8px;
+      margin:4px;
+      border-radius:8px;
+      color:#fff;
+      font-weight:600;
+      font-size:0.95em;
+      min-width:44px;
     }
+    .matrix-table .pill.paid { background: linear-gradient(90deg,#1e88e5,#90caf9); }
+    .matrix-table .pill.pending { background: linear-gradient(90deg,#e53935,#ff8a80); }
 
-    .card h3 {
-      margin: 0 0 8px 0;
-      color: #90caf9;
-    }
-
-    .debt {
-      background: #111;
-      margin-top: 6px;
-      padding: 8px;
-      border-radius: 6px;
-      border-left: 4px solid #e53935;
-    }
-
-    .debt.paid {
-      border-left-color: #1e88e5;
-      background: rgba(30, 136, 229, 0.1);
-    }
-
-    .total {
-      text-align: right;
-      margin-top: 20px;
-      font-weight: bold;
-      color: #00aaff;
-    }
-
-    /* --- Vista general --- */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #161b22;
-    }
-
-    th, td {
-      border: 1px solid #333;
-      padding: 10px;
-      text-align: left;
-    }
-
-    th {
-      background-color: #1f2937;
-      color: #90caf9;
-    }
-
-    tr:nth-child(even) {
-      background-color: #111;
-    }
-
-    /* --- Vista matriz --- */
-    .matrix-table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #111;
-      border: 1px solid #333;
-    }
-
-    .matrix-table th, .matrix-table td {
-      border: 1px solid #333;
-      text-align: center;
-      padding: 8px;
-      min-width: 100px;
-    }
-
-    .matrix-table th {
-      background-color: #1e1e2f;
-      color: #90caf9;
-    }
-
-    .matrix-table td {
-      background-color: #0b0c10;
-    }
-
-    .paid {
-      background-color: #0055ffcc; /* azul */
-    }
-
-    .pending {
-      background-color: #ff2222cc; /* rojo */
-    }
+    .total { text-align:right; margin-top:18px; font-weight:700; color:#00aaff; font-size:1.15em; }
   </style>
 </head>
 <body>
   <h1>💰 Deudas registradas</h1>
 
-  <!-- 🔘 Botones de cambio de vista -->
   <div class="view-switch">
     <button id="btnUsuarios" class="active">👤 Por usuario</button>
     <button id="btnGeneral">📋 General</button>
     <button id="btnMatriz">🧮 Matriz</button>
   </div>
 
-  <!-- 👤 Vista por usuario -->
+  <!-- Vistas -->
   <div id="vistaUsuarios" class="cards-container"></div>
 
-  <!-- 📋 Vista general -->
   <div id="vistaGeneral" style="display:none;">
     <table>
       <thead>
-        <tr>
-          <th>Usuario</th>
-          <th>Descripción</th>
-          <th>Monto</th>
-          <th>Fecha</th>
-          <th>Estado</th>
-        </tr>
+        <tr><th>Usuario</th><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr>
       </thead>
       <tbody id="tablaGeneral"></tbody>
     </table>
   </div>
 
-  <!-- 🧮 Vista matriz -->
   <div id="vistaMatriz" style="display:none;">
     <table class="matrix-table">
-      <thead>
-        <tr id="encabezadoMatriz">
-          <th>Usuario</th>
-        </tr>
-      </thead>
+      <thead><tr id="encabezadoMatriz"><th>Usuario</th></tr></thead>
       <tbody id="cuerpoMatriz"></tbody>
     </table>
   </div>
 
-  <div class="total">
-    Total pendiente: <span id="totalPending">$0</span>
-  </div>
+  <div class="total">Total pendiente: <span id="totalPending">$0</span></div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -201,127 +101,115 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // Referencias DOM
+    // DOM
     const vistaUsuarios = document.getElementById("vistaUsuarios");
-    const vistaGeneral = document.getElementById("vistaGeneral");
-    const vistaMatriz = document.getElementById("vistaMatriz");
-    const tablaGeneral = document.getElementById("tablaGeneral");
+    const vistaGeneral  = document.getElementById("vistaGeneral");
+    const vistaMatriz   = document.getElementById("vistaMatriz");
+    const tablaGeneral  = document.getElementById("tablaGeneral");
     const encabezadoMatriz = document.getElementById("encabezadoMatriz");
-    const cuerpoMatriz = document.getElementById("cuerpoMatriz");
-    const totalPending = document.getElementById("totalPending");
+    const cuerpoMatriz  = document.getElementById("cuerpoMatriz");
+    const totalPending  = document.getElementById("totalPending");
 
     const btnUsuarios = document.getElementById("btnUsuarios");
-    const btnGeneral = document.getElementById("btnGeneral");
-    const btnMatriz = document.getElementById("btnMatriz");
+    const btnGeneral  = document.getElementById("btnGeneral");
+    const btnMatriz   = document.getElementById("btnMatriz");
 
-    // Cambiar vistas
-    function mostrarVista(vista) {
+    function mostrarVista(v) {
       btnUsuarios.classList.remove("active");
       btnGeneral.classList.remove("active");
       btnMatriz.classList.remove("active");
       vistaUsuarios.style.display = "none";
       vistaGeneral.style.display = "none";
       vistaMatriz.style.display = "none";
-
-      if (vista === "usuarios") {
-        btnUsuarios.classList.add("active");
-        vistaUsuarios.style.display = "grid";
-      } else if (vista === "general") {
-        btnGeneral.classList.add("active");
-        vistaGeneral.style.display = "block";
-      } else if (vista === "matriz") {
-        btnMatriz.classList.add("active");
-        vistaMatriz.style.display = "block";
-      }
+      if (v === "usuarios") { btnUsuarios.classList.add("active"); vistaUsuarios.style.display = "grid"; }
+      if (v === "general")  { btnGeneral.classList.add("active"); vistaGeneral.style.display = "block"; }
+      if (v === "matriz")   { btnMatriz.classList.add("active"); vistaMatriz.style.display = "block"; }
     }
-
     btnUsuarios.onclick = () => mostrarVista("usuarios");
-    btnGeneral.onclick = () => mostrarVista("general");
-    btnMatriz.onclick = () => mostrarVista("matriz");
+    btnGeneral.onclick  = () => mostrarVista("general");
+    btnMatriz.onclick   = () => mostrarVista("matriz");
 
-    // Cargar datos desde Firebase
-    onValue(ref(db, "usuarios"), (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
+    // Leer usuarios y deudas
+    onValue(ref(db, "usuarios"), (snap) => {
+      const data = snap.val();
+      if (!data) {
+        vistaUsuarios.innerHTML = "<p style='grid-column:1/-1;text-align:center'>No hay datos</p>";
+        tablaGeneral.innerHTML = "";
+        cuerpoMatriz.innerHTML = "";
+        totalPending.textContent = "$0";
+        return;
+      }
 
+      // limpiar
       vistaUsuarios.innerHTML = "";
       tablaGeneral.innerHTML = "";
       cuerpoMatriz.innerHTML = "";
 
-      let totalGlobal = 0;
-
-      // --- Obtener todas las descripciones posibles ---
+      // obtener todas las descripciones (columnas)
       const descripciones = new Set();
       Object.values(data).forEach(usuario => {
         if (usuario.deudas) {
-          Object.values(usuario.deudas).forEach(deuda => {
-            descripciones.add(deuda.descripcion);
-          });
+          Object.values(usuario.deudas).forEach(d => { if (d.descripcion) descripciones.add(d.descripcion); });
         }
       });
-      const columnas = Array.from(descripciones);
+      const columnas = Array.from(descripciones).sort();
       encabezadoMatriz.innerHTML = "<th>Usuario</th>" + columnas.map(c => `<th>${c}</th>`).join("");
 
-      // --- Renderizado por usuario ---
-      Object.values(data).forEach(usuario => {
-        const card = document.createElement("div");
-        card.classList.add("card");
-        card.innerHTML = `<h3>${usuario.nombre}</h3>`;
+      let totalGlobal = 0;
 
+      // recorrer usuarios
+      Object.values(data).forEach(usuario => {
+        // tarjeta por usuario
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `<h3>${usuario.nombre || "Sin nombre"}</h3>`;
         let totalUsuario = 0;
 
-        // Vista general y matriz
-        const filaMatriz = document.createElement("tr");
-        let htmlFila = `<td>${usuario.nombre}</td>`;
+        // preparar fila matriz
+        const filaM = document.createElement("tr");
+        filaM.innerHTML = `<td>${usuario.nombre || ""}</td>`;
 
-        columnas.forEach(col => {
-          htmlFila += `<td></td>`; // Se llenará luego
-        });
-
-        const celdaArray = htmlFila.match(/<td><\/td>/g) || [];
+        // vamos a construir celdas por columna
+        const celdas = columnas.map(() => "");
 
         if (usuario.deudas) {
-          Object.values(usuario.deudas).forEach(deuda => {
-            const monto = parseFloat(deuda.monto || 0);
+          const deudasArr = Object.values(usuario.deudas);
+          deudasArr.forEach(deuda => {
+            const monto = parseFloat(deuda.monto || 0) || 0;
             const pagado = deuda.pagado === true;
-            const fecha = new Date(deuda.fecha).toLocaleDateString("es-CO");
+            const fecha = deuda.fecha ? new Date(deuda.fecha).toLocaleDateString("es-CO") : "-";
 
-            // --- Vista por usuario ---
-            const deudaDiv = document.createElement("div");
-            deudaDiv.classList.add("debt");
-            if (pagado) deudaDiv.classList.add("paid");
-            deudaDiv.innerHTML = `<p><strong>${deuda.descripcion}</strong> - $${monto}</p><p><small>${fecha}</small></p>`;
-            card.appendChild(deudaDiv);
+            // tarjeta: añadir bloque de deuda
+            const ddiv = document.createElement("div");
+            ddiv.className = "debt" + (pagado ? " paid" : "");
+            ddiv.innerHTML = `<p style="margin:0;"><strong>${deuda.descripcion}</strong> - $${monto.toFixed(0)}</p><p style="margin:4px 0 0 0;"><small>${fecha}</small></p>`;
+            card.appendChild(ddiv);
 
-            // --- Vista general ---
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${usuario.nombre}</td>
-              <td>${deuda.descripcion}</td>
-              <td>$${monto.toFixed(2)}</td>
-              <td>${fecha}</td>
-              <td>${pagado ? "Pagado" : "Pendiente"}</td>
-            `;
-            tablaGeneral.appendChild(row);
+            // tabla general: fila por deuda
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${usuario.nombre}</td><td>${deuda.descripcion}</td><td>$${monto.toFixed(2)}</td><td>${fecha}</td><td>${pagado ? "Pagado" : "Pendiente"}</td>`;
+            tablaGeneral.appendChild(tr);
 
-            // --- Vista matriz ---
-            const colIndex = columnas.indexOf(deuda.descripcion);
-            if (colIndex >= 0) {
-              const estadoClase = pagado ? "paid" : "pending";
-              celdaArray[colIndex] = `<td class="${estadoClase}">$${monto}</td>`;
+            // matriz: buscar columna y agregar pill
+            const idx = columnas.indexOf(deuda.descripcion);
+            if (idx >= 0) {
+              const pill = `<span class="pill ${pagado ? "paid" : "pending"}">$${monto.toFixed(0)}</span>`;
+              celdas[idx] = celdas[idx] ? celdas[idx] + pill : pill;
             }
 
             if (!pagado) totalUsuario += monto;
           });
         }
 
-        filaMatriz.innerHTML = `<td>${usuario.nombre}</td>` + celdaArray.join("");
-        cuerpoMatriz.appendChild(filaMatriz);
+        // añadir celdas a la fila matriz
+        filaM.innerHTML = `<td>${usuario.nombre || ""}</td>` + columnas.map((_, i) => `<td>${celdas[i] || ""}</td>`).join("");
+        cuerpoMatriz.appendChild(filaM);
 
+        // mostrar total usuario en tarjeta
         const totalDiv = document.createElement("p");
         totalDiv.style.marginTop = "10px";
-        totalDiv.style.fontWeight = "bold";
-        totalDiv.innerHTML = `Total pendiente: $${totalUsuario.toFixed(2)}`;
+        totalDiv.style.fontWeight = "700";
+        totalDiv.innerText = `Total pendiente: $${totalUsuario.toFixed(0)}`;
         card.appendChild(totalDiv);
 
         vistaUsuarios.appendChild(card);
